@@ -9,7 +9,7 @@ package serversocket;
  *
  * @author NguyenThanhDat
  */
-public class SocketServer {
+public class Server {
 
     /**
      * @param args the command line arguments
@@ -18,5 +18,4 @@ public class SocketServer {
         ServerGUI gui = new ServerGUI();
         gui.createGUI();
     }
-    
 }
