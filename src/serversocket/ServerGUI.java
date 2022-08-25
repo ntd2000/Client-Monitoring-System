@@ -11,6 +11,8 @@ import java.awt.event.ActionListener;
 import javax.swing.*;
 import java.io.*;
 import java.net.*;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -24,6 +26,7 @@ public class ServerGUI {
     private final int PORT = 9999;
     private ServerSocket serverSocket = null;
     private JTextArea systemBoxMessage = new JTextArea(10, 10);
+    private Set<ClientThread> clientThreads = new HashSet<>();
 
     public void createServer() throws IOException {
         serverSocket = new ServerSocket(PORT);
@@ -33,21 +36,7 @@ public class ServerGUI {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-                systemBoxMessage.setText(message);
-            }
-        });
-    }
-
-    public void acceptClient() {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Socket socket = serverSocket.accept();
-                    updateText("New user connected!");
-                } catch (IOException ex) {
-                    Logger.getLogger(ServerGUI.class.getName()).log(Level.SEVERE, null, ex);
-                }
+                systemBoxMessage.setText("New user connected");
             }
         });
     }
@@ -56,12 +45,25 @@ public class ServerGUI {
         serverFrame = new JFrame("Server");
         JPanel boxMessagePanel = new JPanel();
         boxMessagePanel.add(systemBoxMessage);
-        updateText("Server is waiting to accept user...");
+        systemBoxMessage.setText("Server is waiting to accept user...");
         serverFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         serverFrame.add(boxMessagePanel);
         serverFrame.pack();
         serverFrame.setVisible(true);
-        acceptClient();
+        Thread serverThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    while (true) {
+                        Socket socket = serverSocket.accept();
+                        updateText("New user connected");
+                    }
+                } catch (IOException ex) {
+                    Logger.getLogger(ServerGUI.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        });
+        serverThread.start();
     }
 
     public void createGUI() {
