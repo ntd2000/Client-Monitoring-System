@@ -20,6 +20,8 @@ import javax.swing.event.DocumentListener;
 import javax.swing.event.TreeSelectionEvent;
 import javax.swing.event.TreeSelectionListener;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableModel;
+import javax.swing.table.TableRowSorter;
 import javax.swing.tree.DefaultMutableTreeNode;
 
 /**
@@ -31,11 +33,13 @@ public class ServerGUI {
     private JFrame serverFrame = new JFrame("Server");
     private final int PORT = 9999;
     private ServerSocket serverSocket = null;
-    private JTextArea systemBoxMessage = new JTextArea(10, 20);
+    private JTextArea systemBoxMessage = new JTextArea(10, 30);
     private ArrayList<ClientThread> clientThreads = new ArrayList<>();
     private DefaultListModel<String> modelListClient = new DefaultListModel<>();
     private JList clientList = new JList(modelListClient);
     private JTree treeFolder;
+    private DefaultTableModel tableModel;
+    private JTable table = new JTable();
 
     public void createServer() throws IOException {
         serverSocket = new ServerSocket(PORT);
@@ -62,7 +66,7 @@ public class ServerGUI {
                             @Override
                             public void run() {
                                 modelListClient.addElement(name);
-                                systemBoxMessage.append("\n[" + name + "]" + " connected");
+                                systemBoxMessage.append("\n" + name + " connected");
                             }
                         });
                     }
@@ -72,6 +76,23 @@ public class ServerGUI {
             }
         });
         serverThread.start();
+    }
+
+    public void removeClient(String ip) {
+        for(int i = 0; i<clientThreads.size();i++){
+            if(clientThreads.get(i).getName().equals(ip)){
+                clientThreads.remove(i);
+            }
+        }
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                modelListClient.removeElement(ip);
+            }
+        });
+        for (ClientThread client1 : clientThreads) {
+            System.out.println(client1.getName());
+        }
     }
 
     public void createTreeRoot(ArrayList<String> roots, String ip) {
@@ -111,7 +132,7 @@ public class ServerGUI {
                             JOptionPane.showMessageDialog(frame1,
                                     "Monitoring successfully!",
                                     "Notify",
-                                    JOptionPane.ERROR_MESSAGE);
+                                    JOptionPane.INFORMATION_MESSAGE);
                             dialog.dispose();
                         } catch (IOException ex) {
                             Logger.getLogger(ServerGUI.class.getName()).log(Level.SEVERE, null, ex);
@@ -195,6 +216,30 @@ public class ServerGUI {
         });
     }
 
+    public void filterTable(JTextField field, TableRowSorter<TableModel> sorter) {
+        field.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                filter();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                filter();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+            }
+
+            public void filter() {
+
+                String keyword = field.getText();
+                sorter.setRowFilter(RowFilter.regexFilter(keyword));
+            }
+        });
+    }
+
     public void browseClient(String ip, String command) throws IOException {
         for (ClientThread client : clientThreads) {
             if (client.getName().equals(ip)) {
@@ -213,20 +258,25 @@ public class ServerGUI {
 
     public void GUIAfterConnect() {
         String columns[] = {"STT", "Time", "Action", "IP", "Description"};
-        DefaultTableModel tableModel = new DefaultTableModel(columns, 0);
+        tableModel = new DefaultTableModel(columns, 0);
+        TableRowSorter<TableModel> sorter = new TableRowSorter<>(tableModel);
+        table.setRowSorter(sorter);
 
         serverFrame = new JFrame("Server");
         JLabel searchLabel = new JLabel("Search: ");
         JButton browseBtn = new JButton("Browse");
         JTextField searchField = new JTextField(15);
-        JTable table = new JTable();
+        JTextField filterField = new JTextField(15);
+        JLabel filterLabel = new JLabel("Filter: ");
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JPanel servicePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JPanel boxMessagePanel = new JPanel();
         JPanel listClientPanel = new JPanel(new BorderLayout());
         JPanel contentPanel = new JPanel(new BorderLayout());
-        JPanel listPanel = new JPanel();
+        JPanel listPanel = new JPanel(new BorderLayout());
         JPanel tablePanel = new JPanel(new BorderLayout());
         JPanel actionTablePanel = new JPanel(new BorderLayout());
+
         systemBoxMessage.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
 
         browseBtn.addActionListener(new ActionListener() {
@@ -248,25 +298,29 @@ public class ServerGUI {
                 }
             }
         });
+        filterTable(filterField, sorter);
 
         boxMessagePanel.add(new JScrollPane(systemBoxMessage, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
-                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER));
+                JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED));
         boxMessagePanel.setBorder(BorderFactory.createTitledBorder("System Message"));
         listPanel.add(new JScrollPane(clientList, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
-                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER));
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER), BorderLayout.CENTER);
         listPanel.setBorder(BorderFactory.createEmptyBorder(0, 5, 5, 5));
         listClientPanel.add(listPanel);
         listClientPanel.setBorder(BorderFactory.createTitledBorder("List Clients"));
+        filterPanel.add(filterLabel);
+        filterPanel.add(filterField);
 
         table.setModel(tableModel);
-        table.setPreferredScrollableViewportSize(new Dimension(table.getPreferredSize().width,100));
+        table.setPreferredScrollableViewportSize(new Dimension(table.getPreferredSize().width, 100));
         table.setFillsViewportHeight(true);
         JScrollPane spTable = new JScrollPane(table);
-        
+
         tablePanel.add(spTable, BorderLayout.CENTER);
-        tablePanel.setBorder(BorderFactory.createEmptyBorder(0,5,5,5));
-        actionTablePanel.add(tablePanel);
+        tablePanel.setBorder(BorderFactory.createEmptyBorder(0, 5, 5, 5));
+        actionTablePanel.add(tablePanel, BorderLayout.CENTER);
         actionTablePanel.setBorder(BorderFactory.createTitledBorder("Actions Table"));
+        actionTablePanel.add(filterPanel, BorderLayout.PAGE_START);
         servicePanel.add(searchLabel);
         servicePanel.add(searchField);
         servicePanel.add(browseBtn);
@@ -287,7 +341,26 @@ public class ServerGUI {
         serverFrame.pack();
         serverFrame.setVisible(true);
         serverFrame.setLocationRelativeTo(null);
+        serverFrame.setResizable(false);
         acceptClients();
+    }
+
+    public void loadTable(ArrayList<String> detailActions) {
+        Object[] obj = {table.getRowCount() + 1,
+            detailActions.get(1),
+            detailActions.get(0),
+            detailActions.get(3),
+            detailActions.get(2)};
+        tableModel.addRow(obj);
+    }
+
+    public void updateTextArea(String message) {
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                systemBoxMessage.append(message);
+            }
+        });
     }
 
     public void createGUI() {
