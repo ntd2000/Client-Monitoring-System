@@ -11,10 +11,14 @@ import java.awt.event.ActionListener;
 import javax.swing.*;
 import java.io.*;
 import java.net.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.TreeSelectionEvent;
@@ -43,6 +47,15 @@ public class ServerGUI {
 
     public void createServer() throws IOException {
         serverSocket = new ServerSocket(PORT);
+        LocalDateTime local = LocalDateTime.now();
+        DateTimeFormatter format = DateTimeFormatter.ofPattern("dd-MM-yyyy HH-mm-ss");
+        Logger logger = Logger.getLogger("MyLog");
+        FileHandler fh;
+        fh = new FileHandler("Log-" + local.format(format) + ".log");
+        logger.addHandler(fh);
+        SimpleFormatter formatter = new SimpleFormatter();
+        fh.setFormatter(formatter);
+        logger.info("My first log");
     }
 
     public void acceptClients() {
@@ -79,8 +92,8 @@ public class ServerGUI {
     }
 
     public void removeClient(String ip) {
-        for(int i = 0; i<clientThreads.size();i++){
-            if(clientThreads.get(i).getName().equals(ip)){
+        for (int i = 0; i < clientThreads.size(); i++) {
+            if (clientThreads.get(i).getName().equals(ip)) {
                 clientThreads.remove(i);
             }
         }
@@ -90,9 +103,6 @@ public class ServerGUI {
                 modelListClient.removeElement(ip);
             }
         });
-        for (ClientThread client1 : clientThreads) {
-            System.out.println(client1.getName());
-        }
     }
 
     public void createTreeRoot(ArrayList<String> roots, String ip) {
@@ -346,12 +356,17 @@ public class ServerGUI {
     }
 
     public void loadTable(ArrayList<String> detailActions) {
-        Object[] obj = {table.getRowCount() + 1,
-            detailActions.get(1),
-            detailActions.get(0),
-            detailActions.get(3),
-            detailActions.get(2)};
-        tableModel.addRow(obj);
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                Object[] obj = {table.getRowCount() + 1,
+                    detailActions.get(1),
+                    detailActions.get(0),
+                    detailActions.get(3),
+                    detailActions.get(2)};
+                tableModel.addRow(obj);
+            }
+        });
     }
 
     public void updateTextArea(String message) {
