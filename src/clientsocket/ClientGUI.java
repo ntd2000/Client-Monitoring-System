@@ -19,7 +19,7 @@ import javax.swing.*;
 public class ClientGUI {
 
     private JFrame clientFrame = new JFrame("Client");
-    private JTextArea systemBoxMessage = new JTextArea(10, 10);
+    private JTextArea systemBoxMessage = new JTextArea(10, 20);
 
     public void connectServer(String ip, int port) {
         Thread connect = new Thread() {
@@ -59,8 +59,18 @@ public class ClientGUI {
     public void GUIAfterConnect() {
         clientFrame = new JFrame("Client");
         JPanel boxMessagePanel = new JPanel();
+        
         boxMessagePanel.add(systemBoxMessage);
-        systemBoxMessage.setText("Welcome!");
+        systemBoxMessage.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
+        boxMessagePanel.add(new JScrollPane(systemBoxMessage, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER));
+        boxMessagePanel.setBorder(BorderFactory.createTitledBorder("System Message"));
+        
+        Font font = new Font("Times New Roman", Font.BOLD, 14);
+        systemBoxMessage.setFont(font);
+        systemBoxMessage.setText("Connected to the server");
+        systemBoxMessage.setEditable(false);
+        
         clientFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         clientFrame.add(boxMessagePanel);
         clientFrame.pack();
