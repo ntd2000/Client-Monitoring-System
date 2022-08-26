@@ -18,11 +18,14 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.*;
 import java.nio.file.*;
-import java.util.ArrayList;
-import java.util.Date;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableModel;
+import javax.swing.table.TableRowSorter;
 
 /**
  *
@@ -30,9 +33,12 @@ import javax.swing.*;
  */
 public class ClientGUI {
 
-    private JFrame clientFrame = new JFrame("Client");
-    private JTextArea systemBoxMessage = new JTextArea(10, 20);
+    private JFrame clientFrame;
+    private JTextArea systemBoxMessage;
     private BufferedWriter bw;
+    private Socket socket;
+    private DefaultTableModel tableModel;
+    private JTable table = new JTable();
 
     public void fileRoots() throws IOException {
         bw.write("ROOT");
@@ -83,10 +89,30 @@ public class ClientGUI {
                     }
                     dir.register(watcher, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_DELETE,
                             StandardWatchEventKinds.ENTRY_MODIFY);
-                    System.out.println("Watch Service registered for dir: " + dir.getFileName());
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override
+                        public void run() {
+                            systemBoxMessage.append("\nServer is watching folder " + dir.getFileName());
+                        }
+                    });
+
+                    bw.write("NOTIFY");
+                    bw.newLine();
+                    bw.flush();
+                    bw.write(dir.getFileName().toString());
+                    bw.newLine();
+                    bw.flush();
 
                     WatchKey key = null;
+
                     while (true) {
+                        String kindTemp = "";
+                        String time1 = "";
+                        String time2 = "";
+                        String desc = "";
+                        String nameFile = "";
+                        String nameFileCreate = "";
+                        String nameFileDelete = "";
                         try {
                             key = watcher.take();
                         } catch (InterruptedException ex) {
@@ -99,42 +125,64 @@ public class ClientGUI {
                             WatchEvent<Path> ev = (WatchEvent<Path>) event;
                             Path fileName = ev.context();
                             if (kind == StandardWatchEventKinds.ENTRY_CREATE) {
-                                long lastModified = fileName.toFile().lastModified();
-                                Date date = new Date(lastModified);
-                                String desc = "A file" + fileName.getFileName() + " was created";
-                                bw.write("CREATE");
-                                bw.newLine();
-                                bw.flush();
-                                bw.write(date.toString());
-                                bw.newLine();
-                                bw.flush();
-                                bw.write(desc);
-                                bw.newLine();
-                                bw.flush();
-                                bw.write("END NOTIFY");
-                                bw.newLine();
-                                bw.flush();
+                                LocalDateTime local = LocalDateTime.now();
+                                DateTimeFormatter format = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
+                                time1 = local.format(format);
+                                nameFile = fileName.getFileName().toString();
+                                nameFileCreate = nameFile;
+                                desc = "A file " + nameFile + " was created";
+                                kindTemp = "CREATE";
                             } else if (kind == StandardWatchEventKinds.ENTRY_MODIFY) {
-                                System.out.printf("A file %s was modified.%n", fileName.getFileName());
+                                LocalDateTime local = LocalDateTime.now();
+                                DateTimeFormatter format = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
+                                nameFile = fileName.getFileName().toString();
+                                time1 = local.format(format);
+                                desc = "A file " + nameFile + " was updated";
+                                kindTemp = "UPDATE";
                             } else if (kind == StandardWatchEventKinds.ENTRY_DELETE) {
-                                long lastModified = fileName.toFile().lastModified();
-                                Date date = new Date(lastModified);
-                                String desc = "A file" + fileName.getFileName() + " was deleted";
-                                bw.write("DELETE");
-                                bw.newLine();
-                                bw.flush();
-                                bw.write(date.toString());
-                                bw.newLine();
-                                bw.flush();
-                                bw.write(desc);
-                                bw.newLine();
-                                bw.flush();
-                                bw.write("END NOTIFY");
-                                bw.newLine();
-                                bw.flush();
+                                LocalDateTime local = LocalDateTime.now();
+                                DateTimeFormatter format = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
+                                time2 = local.format(format);
+                                nameFile = fileName.getFileName().toString();
+                                nameFileDelete = nameFile;
+                                desc = "A file " + nameFile + " was deleted";
+                                kindTemp = "DELETE";
                             }
-                        }
 
+                        }
+                        if (time1.equals(time2)) {
+                            kindTemp = "RENAME";
+                            desc = "A file " + nameFileDelete + " was renamed to " + nameFileCreate;
+                            bw.write(kindTemp);
+                            bw.newLine();
+                            bw.flush();
+                            bw.write(time1);
+                            bw.newLine();
+                            bw.flush();
+                            bw.write(desc);
+                            bw.newLine();
+                            bw.flush();
+                            bw.write("END NOTIFY");
+                            bw.newLine();
+                            bw.flush();
+                        } else {
+                            if (kindTemp.equals("DELETE")) {
+                                time1 = time2;
+                            }
+                            bw.write(kindTemp);
+                            bw.newLine();
+                            bw.flush();
+                            bw.write(time1);
+                            bw.newLine();
+                            bw.flush();
+                            bw.write(desc);
+                            bw.newLine();
+                            bw.flush();
+                            bw.write("END NOTIFY");
+                            bw.newLine();
+                            bw.flush();
+                            System.out.println(123);
+                        }
                         boolean valid = key.reset();
                         if (!valid) {
                             break;
@@ -148,27 +196,46 @@ public class ClientGUI {
         watchThread.start();
     }
 
-    public void communicate(Socket socket) throws IOException {
+    public void communicate() throws IOException {
         InputStream is = socket.getInputStream();
         BufferedReader br = new BufferedReader(new InputStreamReader(is));
 
         OutputStream os = socket.getOutputStream();
         bw = new BufferedWriter(new OutputStreamWriter(os));
 
-        String receiveMsg = br.readLine();
-        while (true) {
-            System.out.println(receiveMsg);
+        LocalDateTime local = LocalDateTime.now();
+        DateTimeFormatter format = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
+        String time = local.format(format);
+        bw.write("LOG-IN");
+        bw.newLine();
+        bw.flush();
+        bw.write(time);
+        bw.newLine();
+        bw.flush();
+        bw.write("connected");
+        bw.newLine();
+        bw.flush();
+        bw.write("END NOTIFY");
+        bw.newLine();
+        bw.flush();
+
+        do {
+            String receiveMsg = br.readLine();
+            if (receiveMsg.equals("DISCONNECT")) {
+                break;
+            }
             if (receiveMsg.equals("ROOT")) {
                 fileRoots();
             } else if (receiveMsg.equals("MONITORING")) {
                 String path = br.readLine();
                 watchFolder(path);
             } else {
-                System.out.println(receiveMsg);
                 listFile(receiveMsg);
             }
             receiveMsg = br.readLine();
-        }
+        } while (true);
+        bw.close();
+        br.close();
     }
 
     public void connectServer(String ip, int port) {
@@ -176,7 +243,7 @@ public class ClientGUI {
             @Override
             public void run() {
                 try {
-                    Socket socket = new Socket(ip, port);
+                    socket = new Socket(ip, port);
                     SwingUtilities.invokeLater(new Runnable() {
                         @Override
                         public void run() {
@@ -189,17 +256,18 @@ public class ClientGUI {
                             GUIAfterConnect();
                         }
                     });
-                    watchFolder("");
-                    communicate(socket);
+                    communicate();
                 } catch (IOException ex) {
                     SwingUtilities.invokeLater(new Runnable() {
                         @Override
                         public void run() {
                             Frame frame = new JFrame();
                             JOptionPane.showMessageDialog(frame,
-                                    "Connect failure! You should check the IP or PORT!",
+                                    "Error!" + ex.getMessage(),
                                     "Notify",
                                     JOptionPane.ERROR_MESSAGE);
+                            clientFrame.dispose();
+                            createGUI();
                         }
                     });
                 }
@@ -210,13 +278,64 @@ public class ClientGUI {
 
     public void GUIAfterConnect() {
         clientFrame = new JFrame("Client");
+        systemBoxMessage = new JTextArea(10, 20);
+        String columns[] = {"STT", "Time", "Action", "IP", "Description"};
+        tableModel = new DefaultTableModel(columns, 0);
+        TableRowSorter<TableModel> sorter = new TableRowSorter<>(tableModel);
+        table.setRowSorter(sorter);
+
+        JButton logoutBtn = new JButton("Logout");
+        JTextField filterField = new JTextField(15);
+        JLabel filterLabel = new JLabel("Filter: ");
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         JPanel boxMessagePanel = new JPanel();
+        JPanel contentPanel = new JPanel(new BorderLayout());
+        JPanel tablePanel = new JPanel(new BorderLayout());
+        JPanel actionTablePanel = new JPanel(new BorderLayout());
 
         boxMessagePanel.add(systemBoxMessage);
         systemBoxMessage.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
         boxMessagePanel.add(new JScrollPane(systemBoxMessage, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
                 JScrollPane.HORIZONTAL_SCROLLBAR_NEVER));
         boxMessagePanel.setBorder(BorderFactory.createTitledBorder("System Message"));
+        btnPanel.add(logoutBtn);
+        filterPanel.add(filterLabel);
+        filterPanel.add(filterField);
+        table.setModel(tableModel);
+        table.setPreferredScrollableViewportSize(new Dimension(600, table.getPreferredSize().height));
+        table.setFillsViewportHeight(true);
+        JScrollPane spTable = new JScrollPane(table);
+
+        tablePanel.add(spTable, BorderLayout.CENTER);
+        tablePanel.setBorder(BorderFactory.createEmptyBorder(0, 5, 5, 5));
+        actionTablePanel.add(tablePanel, BorderLayout.CENTER);
+        actionTablePanel.setBorder(BorderFactory.createTitledBorder("Actions Table"));
+        actionTablePanel.add(filterPanel, BorderLayout.PAGE_START);
+        
+        contentPanel.add(btnPanel, BorderLayout.PAGE_START);
+        contentPanel.add(boxMessagePanel, BorderLayout.LINE_START);
+        contentPanel.add(actionTablePanel, BorderLayout.LINE_END);
+
+        logoutBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    JFrame frame = new JFrame();
+                    bw.write("LOGOUT");
+                    bw.newLine();
+                    bw.flush();
+                    clientFrame.dispose();
+                    JOptionPane.showMessageDialog(frame,
+                            "You have logged out!",
+                            "Notify",
+                            JOptionPane.INFORMATION_MESSAGE);
+                    createGUI();
+                } catch (IOException ex) {
+                    Logger.getLogger(ClientGUI.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        });
 
         Font font = new Font("Times New Roman", Font.BOLD, 14);
         systemBoxMessage.setFont(font);
@@ -224,12 +343,15 @@ public class ClientGUI {
         systemBoxMessage.setEditable(false);
 
         clientFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        clientFrame.add(boxMessagePanel);
+        clientFrame.add(contentPanel);
         clientFrame.pack();
+        clientFrame.setLocationRelativeTo(null);
         clientFrame.setVisible(true);
+        watchFolder("");
     }
 
     public void createGUI() {
+        clientFrame = new JFrame("Client");
         JLabel headerLabel = new JLabel("Connect Server");
         JLabel labelIP = new JLabel("IP: ");
         JLabel labelPORT = new JLabel("PORT: ");
