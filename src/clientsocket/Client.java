@@ -9,7 +9,7 @@ package clientsocket;
  *
  * @author NguyenThanhDat
  */
-public class ClientSocket {
+public class Client {
 
     /**
      * @param args the command line arguments
