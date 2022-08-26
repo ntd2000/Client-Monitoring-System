@@ -12,12 +12,15 @@ import javax.swing.*;
 import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Enumeration;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.event.TreeSelectionEvent;
+import javax.swing.event.TreeSelectionListener;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.tree.DefaultMutableTreeNode;
 
 /**
  *
@@ -32,12 +35,14 @@ public class ServerGUI {
     private ArrayList<ClientThread> clientThreads = new ArrayList<>();
     private DefaultListModel<String> modelListClient = new DefaultListModel<>();
     private JList clientList = new JList(modelListClient);
+    private JTree treeFolder;
 
     public void createServer() throws IOException {
         serverSocket = new ServerSocket(PORT);
     }
 
     public void acceptClients() {
+        ServerGUI serverGUI = this;
         Thread serverThread = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -45,7 +50,7 @@ public class ServerGUI {
                     while (true) {
                         Socket client = serverSocket.accept();
                         String ip = client.getInetAddress().getHostAddress();
-                        ClientThread newClient = new ClientThread(client);
+                        ClientThread newClient = new ClientThread(client, serverGUI);
                         if (clientThreads.contains(newClient)) {
                             ip += "(1)";
                         }
@@ -67,6 +72,93 @@ public class ServerGUI {
             }
         });
         serverThread.start();
+    }
+
+    public void createTreeRoot(ArrayList<String> roots, String ip) {
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                JFrame frame = new JFrame();
+                JDialog dialog = new JDialog(frame, "Tree Folder");
+                JButton monitorBtn = new JButton("Monitoring");
+                JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+                DefaultMutableTreeNode root = new DefaultMutableTreeNode("Root");
+                for (String disk : roots) {
+                    root.add(new DefaultMutableTreeNode(disk));
+                }
+                treeFolder = new JTree(root);
+
+                treeFolder.getSelectionModel().addTreeSelectionListener(new TreeSelectionListener() {
+                    @Override
+                    public void valueChanged(TreeSelectionEvent e) {
+                        DefaultMutableTreeNode node = (DefaultMutableTreeNode) e.getPath().getLastPathComponent();
+                        try {
+                            browseClient(ip, node.toString());
+                        } catch (IOException ex) {
+                            Logger.getLogger(ServerGUI.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                        treeFolder.setShowsRootHandles(true);
+                    }
+                });
+
+                monitorBtn.addActionListener(new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        try {
+                            DefaultMutableTreeNode node = (DefaultMutableTreeNode) treeFolder.getLastSelectedPathComponent();
+                            monitorClient(ip, "MONITORING", node.toString());
+                            JFrame frame1 = new JFrame();
+                            JOptionPane.showMessageDialog(frame1,
+                                    "Monitoring successfully!",
+                                    "Notify",
+                                    JOptionPane.ERROR_MESSAGE);
+                            dialog.dispose();
+                        } catch (IOException ex) {
+                            Logger.getLogger(ServerGUI.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+                });
+
+                treeFolder.setRootVisible(false);
+                btnPanel.add(monitorBtn);
+                dialog.setLayout(new BorderLayout());
+                dialog.add(new JScrollPane(treeFolder), BorderLayout.CENTER);
+                dialog.add(btnPanel, BorderLayout.PAGE_END);
+                dialog.setSize(400, 300);
+                dialog.setLocationRelativeTo(null);
+                dialog.setModal(true);
+                dialog.setResizable(false);
+                dialog.setVisible(true);
+
+                serverFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            }
+        });
+    }
+
+    public void createTreeFile(ArrayList<String> files) {
+        DefaultMutableTreeNode node = (DefaultMutableTreeNode) treeFolder.getLastSelectedPathComponent();
+        int countTemp = 0;
+        Enumeration children = node.children();
+        while (true) {
+            if (children.hasMoreElements()) {
+                children.nextElement();
+                countTemp++;
+            } else {
+                break;
+            }
+        }
+        int count = countTemp;
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                if (count != files.size()) {
+                    node.removeAllChildren();
+                    for (String file : files) {
+                        node.add(new DefaultMutableTreeNode(file));
+                    }
+                }
+            }
+        });
     }
 
     public void filterList(JTextField field) {
@@ -103,16 +195,59 @@ public class ServerGUI {
         });
     }
 
+    public void browseClient(String ip, String command) throws IOException {
+        for (ClientThread client : clientThreads) {
+            if (client.getName().equals(ip)) {
+                client.sendCommand(command);
+            }
+        }
+    }
+
+    public void monitorClient(String ip, String command, String path) throws IOException {
+        for (ClientThread client : clientThreads) {
+            if (client.getName().equals(ip)) {
+                client.monitorFolder(command, path);
+            }
+        }
+    }
+
     public void GUIAfterConnect() {
+        String columns[] = {"STT", "Time", "Action", "IP", "Description"};
+        DefaultTableModel tableModel = new DefaultTableModel(columns, 0);
+
         serverFrame = new JFrame("Server");
         JLabel searchLabel = new JLabel("Search: ");
-        JTextField searchField = new JTextField(20);
-        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JButton browseBtn = new JButton("Browse");
+        JTextField searchField = new JTextField(15);
+        JTable table = new JTable();
+        JPanel servicePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JPanel boxMessagePanel = new JPanel();
         JPanel listClientPanel = new JPanel(new BorderLayout());
-        JPanel contentPanel = new JPanel();
+        JPanel contentPanel = new JPanel(new BorderLayout());
         JPanel listPanel = new JPanel();
+        JPanel tablePanel = new JPanel(new BorderLayout());
+        JPanel actionTablePanel = new JPanel(new BorderLayout());
         systemBoxMessage.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
+
+        browseBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JFrame frame = new JFrame();
+                if (clientList.isSelectionEmpty()) {
+                    JOptionPane.showMessageDialog(frame,
+                            "You have not selected the client",
+                            "Notify",
+                            JOptionPane.ERROR_MESSAGE);
+                } else {
+                    try {
+                        String selected = clientList.getSelectedValue().toString();
+                        browseClient(selected, "ROOT");
+                    } catch (IOException ex) {
+                        Logger.getLogger(ServerGUI.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+        });
 
         boxMessagePanel.add(new JScrollPane(systemBoxMessage, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
                 JScrollPane.HORIZONTAL_SCROLLBAR_NEVER));
@@ -123,11 +258,22 @@ public class ServerGUI {
         listClientPanel.add(listPanel);
         listClientPanel.setBorder(BorderFactory.createTitledBorder("List Clients"));
 
-        contentPanel.add(boxMessagePanel);
-        contentPanel.add(listClientPanel);
-        searchPanel.add(searchLabel);
-        searchPanel.add(searchField);
-        listClientPanel.add(searchPanel, BorderLayout.PAGE_START);
+        table.setModel(tableModel);
+        table.setPreferredScrollableViewportSize(new Dimension(table.getPreferredSize().width,100));
+        table.setFillsViewportHeight(true);
+        JScrollPane spTable = new JScrollPane(table);
+        
+        tablePanel.add(spTable, BorderLayout.CENTER);
+        tablePanel.setBorder(BorderFactory.createEmptyBorder(0,5,5,5));
+        actionTablePanel.add(tablePanel);
+        actionTablePanel.setBorder(BorderFactory.createTitledBorder("Actions Table"));
+        servicePanel.add(searchLabel);
+        servicePanel.add(searchField);
+        servicePanel.add(browseBtn);
+        listClientPanel.add(servicePanel, BorderLayout.PAGE_START);
+        contentPanel.add(boxMessagePanel, BorderLayout.CENTER);
+        contentPanel.add(listClientPanel, BorderLayout.LINE_END);
+        contentPanel.add(actionTablePanel, BorderLayout.PAGE_END);
 
         Font font = new Font("Times New Roman", Font.BOLD, 14);
         systemBoxMessage.setFont(font);
