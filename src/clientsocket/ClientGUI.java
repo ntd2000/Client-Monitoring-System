@@ -20,9 +20,12 @@ import java.net.*;
 import java.nio.file.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableModel;
 import javax.swing.table.TableRowSorter;
@@ -113,6 +116,7 @@ public class ClientGUI {
                         String nameFile = "";
                         String nameFileCreate = "";
                         String nameFileDelete = "";
+                        ArrayList<String> detailActions = new ArrayList<>();
                         try {
                             key = watcher.take();
                         } catch (InterruptedException ex) {
@@ -181,8 +185,12 @@ public class ClientGUI {
                             bw.write("END NOTIFY");
                             bw.newLine();
                             bw.flush();
-                            System.out.println(123);
                         }
+
+                        detailActions.add(time1);
+                        detailActions.add(kindTemp);
+                        detailActions.add(desc);
+                        loadTable(detailActions);
                         boolean valid = key.reset();
                         if (!valid) {
                             break;
@@ -232,7 +240,6 @@ public class ClientGUI {
             } else {
                 listFile(receiveMsg);
             }
-            receiveMsg = br.readLine();
         } while (true);
         bw.close();
         br.close();
@@ -261,12 +268,12 @@ public class ClientGUI {
                     SwingUtilities.invokeLater(new Runnable() {
                         @Override
                         public void run() {
+                            clientFrame.dispose();
                             Frame frame = new JFrame();
                             JOptionPane.showMessageDialog(frame,
                                     "Error!" + ex.getMessage(),
                                     "Notify",
                                     JOptionPane.ERROR_MESSAGE);
-                            clientFrame.dispose();
                             createGUI();
                         }
                     });
@@ -276,10 +283,48 @@ public class ClientGUI {
         connect.start();
     }
 
+    public void filterTable(JTextField field, TableRowSorter<TableModel> sorter) {
+        field.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                filter();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                filter();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+            }
+
+            public void filter() {
+
+                String keyword = field.getText();
+                sorter.setRowFilter(RowFilter.regexFilter(keyword));
+            }
+        });
+    }
+
+    public void loadTable(ArrayList<String> detailActions) {
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                Object[] obj = {table.getRowCount() + 1,
+                    detailActions.get(0),
+                    detailActions.get(1),
+                    detailActions.get(2)};
+                tableModel.addRow(obj);
+            }
+        });
+
+    }
+
     public void GUIAfterConnect() {
         clientFrame = new JFrame("Client");
         systemBoxMessage = new JTextArea(10, 20);
-        String columns[] = {"STT", "Time", "Action", "IP", "Description"};
+        String columns[] = {"STT", "Time", "Action", "Description"};
         tableModel = new DefaultTableModel(columns, 0);
         TableRowSorter<TableModel> sorter = new TableRowSorter<>(tableModel);
         table.setRowSorter(sorter);
@@ -312,7 +357,7 @@ public class ClientGUI {
         actionTablePanel.add(tablePanel, BorderLayout.CENTER);
         actionTablePanel.setBorder(BorderFactory.createTitledBorder("Actions Table"));
         actionTablePanel.add(filterPanel, BorderLayout.PAGE_START);
-        
+
         contentPanel.add(btnPanel, BorderLayout.PAGE_START);
         contentPanel.add(boxMessagePanel, BorderLayout.LINE_START);
         contentPanel.add(actionTablePanel, BorderLayout.LINE_END);
@@ -337,6 +382,17 @@ public class ClientGUI {
             }
         });
 
+        filterTable(filterField, sorter);
+
+        ArrayList<String> detailActions = new ArrayList<>();
+        LocalDateTime local = LocalDateTime.now();
+        DateTimeFormatter format = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
+        String time = local.format(format);
+        detailActions.add(time);
+        detailActions.add("LOG-IN");
+        detailActions.add("Connected to the server");
+        loadTable(detailActions);
+
         Font font = new Font("Times New Roman", Font.BOLD, 14);
         systemBoxMessage.setFont(font);
         systemBoxMessage.setText("Connected to the server");
@@ -348,6 +404,7 @@ public class ClientGUI {
         clientFrame.setLocationRelativeTo(null);
         clientFrame.setVisible(true);
         watchFolder("");
+
     }
 
     public void createGUI() {
