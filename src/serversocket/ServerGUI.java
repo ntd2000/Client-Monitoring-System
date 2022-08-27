@@ -57,7 +57,7 @@ public class ServerGUI {
                     LocalDateTime local = LocalDateTime.now();
                     DateTimeFormatter format = DateTimeFormatter.ofPattern("dd-MM-yyyy HH-mm-ss");
                     logCurrentName = "Log-" + local.format(format) + ".log";
-                    FileHandler fh = new FileHandler("logs/"+logCurrentName);
+                    FileHandler fh = new FileHandler("logs/" + logCurrentName);
                     SimpleFormatter formatter = new SimpleFormatter();
                     logger.addHandler(fh);
                     fh.setFormatter(formatter);
@@ -80,7 +80,7 @@ public class ServerGUI {
                         String ip = client.getInetAddress().getHostAddress();
                         ClientThread newClient = new ClientThread(client, serverGUI);
                         if (clientThreads.contains(newClient)) {
-                            ip += "(1)";
+                            ip += "(" + clientThreads.size() + ")";
                         }
                         String name = ip;
                         newClient.setName(ip);
@@ -120,8 +120,8 @@ public class ServerGUI {
         logger.info(log);
     }
 
-    public void readLog(String logFile, JDialog dialog) {
-        DefaultTableModel model = (DefaultTableModel) table.getModel();
+    public void readLog(String logFile, JTable tabelLog, DefaultTableModel tabelLogModel) {
+        DefaultTableModel model = (DefaultTableModel) tabelLog.getModel();
         model.setRowCount(0);
         Thread readLogThread = new Thread() {
             @Override
@@ -140,13 +140,34 @@ public class ServerGUI {
                         log = reader.readLine();
                         String[] splitData = log.split(COMMA_DELIMITER);
                         String[] kind = splitData[0].split(":");
-                        detailActions.add(kind[1]);
+                        detailActions.add(kind[1].trim());
                         for (int i = 1; i < splitData.length; i++) {
-                            detailActions.add(splitData[i]);
+                            detailActions.add(splitData[i].trim());
                         }
-                        loadTable(detailActions);
+                        loadTableLog(detailActions, tabelLog, tabelLogModel);
                     } while (true);
                 } catch (IOException e) {
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override
+                        public void run() {
+                            JFrame frame = new JFrame();
+                            JOptionPane.showMessageDialog(frame,
+                                    "Cannot load file logs!",
+                                    "Notify",
+                                    JOptionPane.ERROR_MESSAGE);
+                        }
+                    });
+                } catch (Exception ex) {
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override
+                        public void run() {
+                            JFrame frame = new JFrame();
+                            JOptionPane.showMessageDialog(frame,
+                                    "Cannot load file logs! You should check the file content format!",
+                                    "Notify",
+                                    JOptionPane.ERROR_MESSAGE);
+                        }
+                    });
                 } finally {
                     try {
                         if (reader != null) {
@@ -216,7 +237,6 @@ public class ServerGUI {
                 treeFolder.setRootVisible(false);
                 dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
                 btnPanel.add(monitorBtn);
-                dialog.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
                 dialog.setLayout(new BorderLayout());
                 dialog.add(new JScrollPane(treeFolder), BorderLayout.CENTER);
                 dialog.add(btnPanel, BorderLayout.PAGE_END);
@@ -339,7 +359,7 @@ public class ServerGUI {
                     File[] logFile = dir.listFiles(new FileFilter() {
                         @Override
                         public boolean accept(File pathname) {
-                            if (pathname.getAbsolutePath().endsWith(".log")&&!pathname.getName().equals(logCurrentName)) {
+                            if (pathname.getAbsolutePath().endsWith(".log") && !pathname.getName().equals(logCurrentName)) {
                                 return true;
                             }
                             return false;
@@ -360,6 +380,19 @@ public class ServerGUI {
     }
 
     public void createTreeLog(ArrayList<String> logFiles) {
+        String columns[] = {"STT", "Time", "Action", "IP", "Description"};
+        DefaultTableModel tableTreeModel = new DefaultTableModel(columns, 0);
+        TableRowSorter<TableModel> sorter = new TableRowSorter<>(tableTreeModel);
+
+        JTable tableLog = new JTable();
+        JTextField filterField = new JTextField(15);
+        JButton logBtn = new JButton("Logs");
+        JLabel filterLabel = new JLabel("Filter: ");
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        tableLog.setRowSorter(sorter);
+        JPanel tablePanel = new JPanel(new BorderLayout());
+        JPanel actionPanel = new JPanel(new BorderLayout());
+        JPanel treePanel = new JPanel();
         JFrame frame = new JFrame();
         JDialog dialog = new JDialog(frame, "Tree Log");
         JButton loadBtn = new JButton("Load");
@@ -368,9 +401,13 @@ public class ServerGUI {
         for (String file : logFiles) {
             root.add(new DefaultMutableTreeNode(file));
         }
+
         treeFolder = new JTree(root);
         treeFolder.setRootVisible(false);
         btnPanel.add(loadBtn);
+        filterPanel.add(filterLabel);
+        filterPanel.add(filterField);
+
         loadBtn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -382,26 +419,51 @@ public class ServerGUI {
                             "Notify",
                             JOptionPane.ERROR_MESSAGE);
                 } else {
-                    readLog("logs/" + node.toString(), dialog);
-                    dialog.dispose();
-                    JOptionPane.showMessageDialog(frame1,
-                            "Load successfully!",
-                            "Notify",
-                            JOptionPane.INFORMATION_MESSAGE);
+                    readLog("logs/" + node.toString(), tableLog, tableTreeModel);
                 }
             }
         });
 
+        treePanel.setBorder(BorderFactory.createTitledBorder("Logs"));
+        treePanel.add(new JScrollPane(treeFolder));
+        actionPanel.setPreferredSize(new Dimension(700, actionPanel.getPreferredSize().height));
+        tableLog.setModel(tableTreeModel);
+        tableLog.setFillsViewportHeight(true);
+        JScrollPane spTable = new JScrollPane(tableLog);
+
+        tablePanel.add(spTable, BorderLayout.CENTER);
+        tablePanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        actionPanel.setBorder(BorderFactory.createTitledBorder("Actions"));
+        actionPanel.add(tablePanel, BorderLayout.CENTER);
+        actionPanel.add(filterPanel, BorderLayout.PAGE_START);
+
+        filterTable(filterField, sorter);
+
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         dialog.setLayout(new BorderLayout());
-        dialog.add(new JScrollPane(treeFolder), BorderLayout.CENTER);
+        dialog.add(treePanel, BorderLayout.CENTER);
+        dialog.add(actionPanel, BorderLayout.LINE_END);
         dialog.add(btnPanel, BorderLayout.PAGE_END);
-        dialog.setSize(400, 300);
+        dialog.pack();
         dialog.setLocationRelativeTo(null);
         dialog.setModal(true);
         dialog.setResizable(false);
         dialog.setVisible(true);
 
+    }
+
+    public void loadTableLog(ArrayList<String> detailActions, JTable tableLog, DefaultTableModel tableLogModel) {
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                Object[] obj = {tableLog.getRowCount() + 1,
+                    detailActions.get(1),
+                    detailActions.get(0),
+                    detailActions.get(3),
+                    detailActions.get(2)};
+                tableLogModel.addRow(obj);
+            }
+        });
     }
 
     public void GUIAfterConnect() {
@@ -415,7 +477,7 @@ public class ServerGUI {
         JButton browseBtn = new JButton("Browse");
         JTextField searchField = new JTextField(15);
         JTextField filterField = new JTextField(15);
-        JButton logBtn = new JButton("Read Log");
+        JButton logBtn = new JButton("Logs");
         JLabel filterLabel = new JLabel("Filter: ");
         JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JPanel servicePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));

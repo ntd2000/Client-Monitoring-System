@@ -1,0 +1,12 @@
+Aug 27, 2022 1:58:47 PM serversocket.ServerGUI writeLog
+INFO: LOG-IN; 27-08-2022 13:58:47; 192.168.58.1 connected; 192.168.58.1
+Aug 27, 2022 1:59:01 PM serversocket.ServerGUI writeLog
+INFO: LOG-OUT; 27-08-2022 13:59:01; 192.168.58.1 has quitted; 192.168.58.1
+Aug 27, 2022 1:59:16 PM serversocket.ServerGUI writeLog
+INFO: LOG-IN; 27-08-2022 13:59:16; 192.168.58.1 connected; 192.168.58.1
+Aug 27, 2022 2:00:10 PM serversocket.ServerGUI writeLog
+INFO: LOG-IN; 27-08-2022 14:00:10; 192.168.58.1(1) connected; 192.168.58.1(1)
+Aug 27, 2022 2:00:25 PM serversocket.ServerGUI writeLog
+INFO: LOG-OUT; 27-08-2022 14:00:25; 192.168.58.1(1) has quitted; 192.168.58.1(1)
+Aug 27, 2022 2:00:31 PM serversocket.ServerGUI writeLog
+INFO: LOG-OUT; 27-08-2022 14:00:31; 192.168.58.1 has quitted; 192.168.58.1

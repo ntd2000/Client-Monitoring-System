@@ -23,8 +23,8 @@ import java.util.logging.SimpleFormatter;
 public class ClientThread extends Thread {
 
     private Socket client;
-    private BufferedWriter bw;
-    private BufferedReader br;
+    private BufferedWriter bw = null;
+    private BufferedReader br = null;
     private ServerGUI serverGUI;
     private Logger logger = Logger.getLogger("LogAction");
 
@@ -117,29 +117,30 @@ public class ClientThread extends Thread {
                     String message = "\nServer is watching folder " + receiveMsg + " of " + getName();
                     serverGUI.updateTextArea(message);
                 }
-
-                if ("LOGOUT".equals(receiveMsg)) {
-                    sendCommand("DISCONNECT");
-                    break;
-                }
                 receiveMsg = br.readLine();
             }
         } catch (IOException ex) {
         } finally {
             try {
-                String message = "\n" + getName() + " has quitted";
+                String message = getName() + " has quitted";
                 ArrayList<String> detailActions = new ArrayList<>();
                 LocalDateTime local = LocalDateTime.now();
                 DateTimeFormatter format = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
                 String time = local.format(format);
+                String log = "LOG-OUT; " + time + "; " + message + "; " + getName();
+                serverGUI.writeLog(log);
                 detailActions.add("LOG-OUT");
                 detailActions.add(time);
                 detailActions.add(message);
                 detailActions.add(getName());
                 serverGUI.loadTable(detailActions);
-                bw.close();
-                br.close();
-                serverGUI.updateTextArea(message);
+                if (bw != null) {
+                    bw.close();
+                }
+                if (br != null) {
+                    br.close();
+                }
+                serverGUI.updateTextArea("\n" + message);
                 serverGUI.removeClient(getName());
             } catch (IOException ex1) {
             }
