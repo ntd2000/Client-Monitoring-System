@@ -1,0 +1,6 @@
+Aug 27, 2022 4:00:43 PM clientsocket.ClientGUI writeLog
+INFO: LOG-IN; 27-08-2022 16:00:43; Connected to the server
+Aug 27, 2022 4:00:55 PM clientsocket.ClientGUI writeLog
+INFO: DELETE; 27-08-2022 16:00:55; A file New folder was deleted
+Aug 27, 2022 4:01:04 PM clientsocket.ClientGUI writeLog
+INFO: CREATE; 27-08-2022 16:01:04; A file New folder was created

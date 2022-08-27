@@ -52,6 +52,8 @@ public class ClientGUI {
     private JTable table = new JTable();
     private Logger logger;
     private String logCurrentName;
+    private WatchService watcher = null;
+    private WatchKey key = null;
 
     public void fileRoots() throws IOException {
         bw.write("ROOT");
@@ -93,7 +95,7 @@ public class ClientGUI {
             @Override
             public void run() {
                 try {
-                    WatchService watcher = FileSystems.getDefault().newWatchService();
+                    watcher = FileSystems.getDefault().newWatchService();
                     Path dir;
                     if (path.equals("")) {
                         dir = Paths.get("C:/ClientMonitoringSystem/Data");
@@ -116,9 +118,7 @@ public class ClientGUI {
                     bw.newLine();
                     bw.flush();
 
-                    WatchKey key = null;
-
-                    while (true) {
+                    while ((key = watcher.take()) != null) {
                         String kindTemp = "";
                         String time1 = "";
                         String time2 = "";
@@ -127,13 +127,6 @@ public class ClientGUI {
                         String nameFileCreate = "";
                         String nameFileDelete = "";
                         ArrayList<String> detailActions = new ArrayList<>();
-                        try {
-                            key = watcher.take();
-                        } catch (InterruptedException ex) {
-                            System.out.println("InterruptedException: " + ex.getMessage());
-                            return;
-                        }
-
                         for (WatchEvent<?> event : key.pollEvents()) {
                             WatchEvent.Kind<?> kind = event.kind();
                             WatchEvent<Path> ev = (WatchEvent<Path>) event;
@@ -202,12 +195,11 @@ public class ClientGUI {
                         detailActions.add(desc);
                         loadTable(detailActions);
                         writeLog(log);
-                        boolean valid = key.reset();
-                        if (!valid) {
-                            break;
-                        }
+                        key.reset();
                     }
                 } catch (IOException ex) {
+                    Logger.getLogger(ClientGUI.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (InterruptedException ex) {
                     Logger.getLogger(ClientGUI.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
@@ -285,7 +277,13 @@ public class ClientGUI {
                                     "Notify",
                                     JOptionPane.INFORMATION_MESSAGE);
                             clientFrame.dispose();
-                            GUIAfterConnect();
+                            try {
+                                GUIAfterConnect();
+                            } catch (IOException ex) {
+                                Logger.getLogger(ClientGUI.class.getName()).log(Level.SEVERE, null, ex);
+                            } catch (InterruptedException ex) {
+                                Logger.getLogger(ClientGUI.class.getName()).log(Level.SEVERE, null, ex);
+                            }
                         }
                     });
                     communicate();
@@ -538,7 +536,7 @@ public class ClientGUI {
         });
     }
 
-    public void GUIAfterConnect() {
+    public void GUIAfterConnect() throws IOException, InterruptedException {
         clientFrame = new JFrame("Client");
         systemBoxMessage = new JTextArea(10, 20);
         String columns[] = {"STT", "Time", "Action", "Description"};
@@ -609,8 +607,14 @@ public class ClientGUI {
         clientFrame.pack();
         clientFrame.setLocationRelativeTo(null);
         clientFrame.setVisible(true);
-        watchFolder("");
 
+        if (watcher == null) {
+            watchFolder("");
+        } else {
+            key.pollEvents();
+            watcher.close();           
+            watchFolder("");
+        }
     }
 
     public void createGUI() {

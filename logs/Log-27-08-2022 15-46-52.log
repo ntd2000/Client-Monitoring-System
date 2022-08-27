@@ -1,0 +1,24 @@
+Aug 27, 2022 3:46:52 PM clientsocket.ClientGUI writeLog
+INFO: LOG-IN; 27-08-2022 15:46:52; Connected to the server
+Aug 27, 2022 3:47:17 PM clientsocket.ClientGUI writeLog
+INFO: DELETE; 27-08-2022 15:47:17; A file New folder was deleted
+Aug 27, 2022 3:47:23 PM clientsocket.ClientGUI writeLog
+INFO: CREATE; 27-08-2022 15:47:23; A file New folder was created
+Aug 27, 2022 3:47:31 PM clientsocket.ClientGUI writeLog
+INFO: RENAME; 27-08-2022 15:47:31; A file New folder was renamed to 123
+Aug 27, 2022 3:47:39 PM clientsocket.ClientGUI writeLog
+INFO: CREATE; 27-08-2022 15:47:39; A file New Text Document.txt was created
+Aug 27, 2022 3:47:43 PM clientsocket.ClientGUI writeLog
+INFO: UPDATE; 27-08-2022 15:47:43; A file New Text Document.txt was updated
+Aug 27, 2022 3:47:43 PM clientsocket.ClientGUI writeLog
+INFO: UPDATE; 27-08-2022 15:47:43; A file New Text Document.txt was updated
+Aug 27, 2022 3:48:24 PM clientsocket.ClientGUI writeLog
+INFO: DELETE; 27-08-2022 15:48:24; A file New Text Document.txt was deleted
+Aug 27, 2022 3:48:40 PM clientsocket.ClientGUI writeLog
+INFO: CREATE; 27-08-2022 15:48:40; A file New folder was created
+Aug 27, 2022 3:49:03 PM clientsocket.ClientGUI writeLog
+INFO: DELETE; 27-08-2022 15:49:03; A file 123 was deleted
+Aug 27, 2022 3:49:23 PM clientsocket.ClientGUI writeLog
+INFO: CREATE; 27-08-2022 15:49:23; A file New folder (2) was created
+Aug 27, 2022 3:49:24 PM clientsocket.ClientGUI writeLog
+INFO: RENAME; 27-08-2022 15:49:24; A file New folder (2) was renamed to 213

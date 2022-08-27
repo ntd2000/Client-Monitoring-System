@@ -1,0 +1,12 @@
+Aug 27, 2022 3:42:04 PM clientsocket.ClientGUI writeLog
+INFO: LOG-IN; 27-08-2022 15:42:04; Connected to the server
+Aug 27, 2022 3:42:41 PM clientsocket.ClientGUI writeLog
+INFO: DELETE; 27-08-2022 15:42:41; A file TCPClient.java was deleted
+Aug 27, 2022 3:42:42 PM clientsocket.ClientGUI writeLog
+INFO: DELETE; 27-08-2022 15:42:42; A file New Text Document.txt was deleted
+Aug 27, 2022 3:42:56 PM clientsocket.ClientGUI writeLog
+INFO: CREATE; 27-08-2022 15:42:56; A file New folder was created
+Aug 27, 2022 3:43:41 PM clientsocket.ClientGUI writeLog
+INFO: CREATE; 27-08-2022 15:43:41; A file New Text Document.txt was created
+Aug 27, 2022 3:43:56 PM clientsocket.ClientGUI writeLog
+INFO: DELETE; 27-08-2022 15:43:56; A file New Text Document.txt was deleted
