@@ -402,8 +402,10 @@ public class ServerGUI {
             root.add(new DefaultMutableTreeNode(file));
         }
 
+        
         treeFolder = new JTree(root);
         treeFolder.setRootVisible(false);
+        treeFolder.setPreferredSize(new Dimension(200, treeFolder.getPreferredSize().height));
         btnPanel.add(loadBtn);
         filterPanel.add(filterLabel);
         filterPanel.add(filterField);
