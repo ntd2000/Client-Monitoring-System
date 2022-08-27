@@ -14,6 +14,7 @@ import java.net.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
@@ -44,18 +45,28 @@ public class ServerGUI {
     private JTree treeFolder;
     private DefaultTableModel tableModel;
     private JTable table = new JTable();
+    private Logger logger = Logger.getLogger("LogAction");
+    private String logCurrentName;
 
     public void createServer() throws IOException {
         serverSocket = new ServerSocket(PORT);
-        LocalDateTime local = LocalDateTime.now();
-        DateTimeFormatter format = DateTimeFormatter.ofPattern("dd-MM-yyyy HH-mm-ss");
-        Logger logger = Logger.getLogger("MyLog");
-        FileHandler fh;
-        fh = new FileHandler("Log-" + local.format(format) + ".log");
-        logger.addHandler(fh);
-        SimpleFormatter formatter = new SimpleFormatter();
-        fh.setFormatter(formatter);
-        logger.info("My first log");
+        Thread createLogTheard = new Thread() {
+            @Override
+            public void run() {
+                try {
+                    LocalDateTime local = LocalDateTime.now();
+                    DateTimeFormatter format = DateTimeFormatter.ofPattern("dd-MM-yyyy HH-mm-ss");
+                    logCurrentName = "Log-" + local.format(format) + ".log";
+                    FileHandler fh = new FileHandler("logs/"+logCurrentName);
+                    SimpleFormatter formatter = new SimpleFormatter();
+                    logger.addHandler(fh);
+                    fh.setFormatter(formatter);
+                } catch (IOException ex) {
+                    Logger.getLogger(ServerGUI.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        };
+        createLogTheard.start();
     }
 
     public void acceptClients() {
@@ -105,6 +116,50 @@ public class ServerGUI {
         });
     }
 
+    public void writeLog(String log) {
+        logger.info(log);
+    }
+
+    public void readLog(String logFile, JDialog dialog) {
+        DefaultTableModel model = (DefaultTableModel) table.getModel();
+        model.setRowCount(0);
+        Thread readLogThread = new Thread() {
+            @Override
+            public void run() {
+                BufferedReader reader = null;
+                try {
+                    ArrayList<String> logs = new ArrayList<>();
+                    String COMMA_DELIMITER = ";";
+                    reader = new BufferedReader(new FileReader(logFile));
+                    do {
+                        ArrayList<String> detailActions = new ArrayList<>();
+                        String log = reader.readLine();
+                        if (log == null) {
+                            break;
+                        }
+                        log = reader.readLine();
+                        String[] splitData = log.split(COMMA_DELIMITER);
+                        String[] kind = splitData[0].split(":");
+                        detailActions.add(kind[1]);
+                        for (int i = 1; i < splitData.length; i++) {
+                            detailActions.add(splitData[i]);
+                        }
+                        loadTable(detailActions);
+                    } while (true);
+                } catch (IOException e) {
+                } finally {
+                    try {
+                        if (reader != null) {
+                            reader.close();
+                        }
+                    } catch (IOException crunchifyException) {
+                    }
+                }
+            }
+        };
+        readLogThread.start();
+    }
+
     public void createTreeRoot(ArrayList<String> roots, String ip) {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
@@ -137,13 +192,21 @@ public class ServerGUI {
                     public void actionPerformed(ActionEvent e) {
                         try {
                             DefaultMutableTreeNode node = (DefaultMutableTreeNode) treeFolder.getLastSelectedPathComponent();
-                            monitorClient(ip, "MONITORING", node.toString());
                             JFrame frame1 = new JFrame();
-                            JOptionPane.showMessageDialog(frame1,
-                                    "Monitoring successfully!",
-                                    "Notify",
-                                    JOptionPane.INFORMATION_MESSAGE);
-                            dialog.dispose();
+                            if (node == null) {
+                                JOptionPane.showMessageDialog(frame1,
+                                        "You have not selected folder!",
+                                        "Notify",
+                                        JOptionPane.ERROR_MESSAGE);
+                            } else {
+                                monitorClient(ip, "MONITORING", node.toString());
+                                dialog.dispose();
+                                JOptionPane.showMessageDialog(frame1,
+                                        "Monitoring successfully!",
+                                        "Notify",
+                                        JOptionPane.INFORMATION_MESSAGE);
+                            }
+
                         } catch (IOException ex) {
                             Logger.getLogger(ServerGUI.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -151,7 +214,9 @@ public class ServerGUI {
                 });
 
                 treeFolder.setRootVisible(false);
+                dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
                 btnPanel.add(monitorBtn);
+                dialog.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
                 dialog.setLayout(new BorderLayout());
                 dialog.add(new JScrollPane(treeFolder), BorderLayout.CENTER);
                 dialog.add(btnPanel, BorderLayout.PAGE_END);
@@ -160,8 +225,6 @@ public class ServerGUI {
                 dialog.setModal(true);
                 dialog.setResizable(false);
                 dialog.setVisible(true);
-
-                serverFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             }
         });
     }
@@ -266,6 +329,81 @@ public class ServerGUI {
         }
     }
 
+    public ArrayList<String> loadFileLog(String logCurrentName) {
+        ArrayList<String> logFiles = new ArrayList<>();
+        Thread loadLogThread = new Thread() {
+            @Override
+            public void run() {
+                File dir = new File("logs");
+                if (dir.isDirectory()) {
+                    File[] logFile = dir.listFiles(new FileFilter() {
+                        @Override
+                        public boolean accept(File pathname) {
+                            if (pathname.getAbsolutePath().endsWith(".log")&&!pathname.getName().equals(logCurrentName)) {
+                                return true;
+                            }
+                            return false;
+                        }
+                    });
+                    for (File file : logFile) {
+                        logFiles.add(file.getName());
+                    }
+                }
+            }
+        };
+        loadLogThread.start();
+        do {
+            if (loadLogThread.getState() == Thread.State.TERMINATED) {
+                return logFiles;
+            }
+        } while (true);
+    }
+
+    public void createTreeLog(ArrayList<String> logFiles) {
+        JFrame frame = new JFrame();
+        JDialog dialog = new JDialog(frame, "Tree Log");
+        JButton loadBtn = new JButton("Load");
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        DefaultMutableTreeNode root = new DefaultMutableTreeNode("Root");
+        for (String file : logFiles) {
+            root.add(new DefaultMutableTreeNode(file));
+        }
+        treeFolder = new JTree(root);
+        treeFolder.setRootVisible(false);
+        btnPanel.add(loadBtn);
+        loadBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                DefaultMutableTreeNode node = (DefaultMutableTreeNode) treeFolder.getLastSelectedPathComponent();
+                JFrame frame1 = new JFrame();
+                if (node == null) {
+                    JOptionPane.showMessageDialog(frame1,
+                            "You have not selected log file!",
+                            "Notify",
+                            JOptionPane.ERROR_MESSAGE);
+                } else {
+                    readLog("logs/" + node.toString(), dialog);
+                    dialog.dispose();
+                    JOptionPane.showMessageDialog(frame1,
+                            "Load successfully!",
+                            "Notify",
+                            JOptionPane.INFORMATION_MESSAGE);
+                }
+            }
+        });
+
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialog.setLayout(new BorderLayout());
+        dialog.add(new JScrollPane(treeFolder), BorderLayout.CENTER);
+        dialog.add(btnPanel, BorderLayout.PAGE_END);
+        dialog.setSize(400, 300);
+        dialog.setLocationRelativeTo(null);
+        dialog.setModal(true);
+        dialog.setResizable(false);
+        dialog.setVisible(true);
+
+    }
+
     public void GUIAfterConnect() {
         String columns[] = {"STT", "Time", "Action", "IP", "Description"};
         tableModel = new DefaultTableModel(columns, 0);
@@ -277,6 +415,7 @@ public class ServerGUI {
         JButton browseBtn = new JButton("Browse");
         JTextField searchField = new JTextField(15);
         JTextField filterField = new JTextField(15);
+        JButton logBtn = new JButton("Read Log");
         JLabel filterLabel = new JLabel("Filter: ");
         JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JPanel servicePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -310,6 +449,13 @@ public class ServerGUI {
         });
         filterTable(filterField, sorter);
 
+        logBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                createTreeLog(loadFileLog(logCurrentName));
+            }
+        });
+
         boxMessagePanel.add(new JScrollPane(systemBoxMessage, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
                 JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED));
         boxMessagePanel.setBorder(BorderFactory.createTitledBorder("System Message"));
@@ -320,9 +466,10 @@ public class ServerGUI {
         listClientPanel.setBorder(BorderFactory.createTitledBorder("List Clients"));
         filterPanel.add(filterLabel);
         filterPanel.add(filterField);
+        filterPanel.add(logBtn);
 
         table.setModel(tableModel);
-        table.setPreferredScrollableViewportSize(new Dimension(table.getPreferredSize().width, 100));
+        table.setPreferredScrollableViewportSize(new Dimension(table.getPreferredSize().width, 200));
         table.setFillsViewportHeight(true);
         JScrollPane spTable = new JScrollPane(table);
 

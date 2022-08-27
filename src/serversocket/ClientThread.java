@@ -11,8 +11,10 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Objects;
+import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 /**
  *
@@ -24,6 +26,7 @@ public class ClientThread extends Thread {
     private BufferedWriter bw;
     private BufferedReader br;
     private ServerGUI serverGUI;
+    private Logger logger = Logger.getLogger("LogAction");
 
     public ClientThread(Socket client, ServerGUI serverGUI) {
         this.client = client;
@@ -46,6 +49,18 @@ public class ClientThread extends Thread {
         int hash = 7;
         hash = 11 * hash + Objects.hashCode(this.client);
         return hash;
+    }
+
+    public void createLog() throws IOException {
+        LocalDateTime local = LocalDateTime.now();
+        DateTimeFormatter format = DateTimeFormatter.ofPattern("dd-MM-yyyy HH-mm-ss");
+
+        FileHandler fh = new FileHandler("Log-" + local.format(format) + ".log");
+        SimpleFormatter formatter = new SimpleFormatter();
+        logger.addHandler(fh);
+        fh.setFormatter(formatter);
+        logger.info("RENAME; 2018-10-5 21:23:25; A file txt was rename; 192.168.58.1");
+        logger.info("RENAME; 2018-10-5 21:23:25; A file txt was rename; 192.168.58.1");
     }
 
     @Override
@@ -81,16 +96,20 @@ public class ClientThread extends Thread {
                 if ("CREATE".equals(receiveMsg) || "DELETE".equals(receiveMsg)
                         || "LOG-IN".equals(receiveMsg) || "RENAME".equals(receiveMsg)
                         || "UPDATE".equals(receiveMsg)) {
+                    String log = "";
                     ArrayList<String> detailActions = new ArrayList<>();
                     while (!receiveMsg.equals("END NOTIFY")) {
                         if ("connected".equals(receiveMsg)) {
                             receiveMsg = getName() + " " + receiveMsg;
                         }
+                        log += receiveMsg + "; ";
                         detailActions.add(receiveMsg);
                         receiveMsg = br.readLine();
                     }
                     detailActions.add(getName());
+                    log += getName();
                     serverGUI.loadTable(detailActions);
+                    serverGUI.writeLog(log);
                 }
 
                 if ("NOTIFY".equals(receiveMsg)) {
@@ -98,8 +117,8 @@ public class ClientThread extends Thread {
                     String message = "\nServer is watching folder " + receiveMsg + " of " + getName();
                     serverGUI.updateTextArea(message);
                 }
-                
-                if("LOGOUT".equals(receiveMsg)){
+
+                if ("LOGOUT".equals(receiveMsg)) {
                     sendCommand("DISCONNECT");
                     break;
                 }
