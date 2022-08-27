@@ -90,6 +90,9 @@ public class ClientGUI {
         bw.flush();
     }
 
+    
+    //Tham khảo cách khởi tạo Watcher cách bắt sự kiện 
+    //Link: https://www.baeldung.com/java-nio2-watchservice
     public void watchFolder(String path) {
         Thread watchThread = new Thread() {
             @Override
