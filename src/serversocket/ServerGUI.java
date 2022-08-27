@@ -295,7 +295,7 @@ public class ServerGUI {
                 String keyword = field.getText();
                 for (ClientThread client : clientThreads) {
                     String name = client.getName();
-                    if (!name.startsWith(keyword)) {
+                    if (!name.contains(keyword)) {
                         if (modelListClient.contains(name)) {
                             modelListClient.removeElement(name);
                         }
